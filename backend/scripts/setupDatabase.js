@@ -1,4 +1,4 @@
-﻿const mysql = require('mysql2/promise');
+const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
@@ -62,6 +62,7 @@ const setupDatabase = async () => {
     // Create rentals table
     await connection.query(`CREATE TABLE IF NOT EXISTS rentals (
       id INT AUTO_INCREMENT PRIMARY KEY,
+      rental_id VARCHAR(20) UNIQUE,
       item_id INT NOT NULL,
       borrower_id INT NOT NULL,
       lender_id INT NOT NULL,
@@ -69,6 +70,24 @@ const setupDatabase = async () => {
       end_date DATE NOT NULL,
       total_price DECIMAL(10,2) NOT NULL,
       status ENUM('pending', 'active', 'completed', 'cancelled') DEFAULT 'pending',
+      workflow_status ENUM('payment_pending', 'payment_made', 'admin_review', 'approved', 'lender_confirmed', 'active', 'borrower_returned', 'return_pending', 'return_completed', 'completed', 'rejected', 'cancelled') DEFAULT 'payment_pending',
+      payment_amount DECIMAL(10,2) DEFAULT 0,
+      deposit_amount DECIMAL(10,2) DEFAULT 0,
+      payment_status ENUM('pending', 'paid', 'approved', 'transferred', 'refunded') DEFAULT 'pending',
+      payment_date DATETIME NULL,
+      payment_slip LONGTEXT NULL,
+      admin_approved_at DATETIME NULL,
+      admin_approved_by INT NULL,
+      lender_paid_at DATETIME NULL,
+      item_returned_at DATETIME NULL,
+      return_confirmed_by_lender TINYINT(1) DEFAULT 0,
+      deposit_refunded_at DATETIME NULL,
+      lender_transfer_photo LONGTEXT NULL,
+      borrower_receive_photo LONGTEXT NULL,
+      return_photo LONGTEXT NULL,
+      admin_reject_refund_slip LONGTEXT NULL,
+      rejection_reason TEXT NULL,
+      refund_slip LONGTEXT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE,
@@ -77,7 +96,8 @@ const setupDatabase = async () => {
       INDEX idx_item (item_id),
       INDEX idx_borrower (borrower_id),
       INDEX idx_lender (lender_id),
-      INDEX idx_status (status)
+      INDEX idx_status (status),
+      INDEX idx_workflow_status (workflow_status)
     )`);
 
     // Create reviews table
@@ -139,9 +159,9 @@ const setupDatabase = async () => {
     console.log('Setup complete! Login with admin@rentmate.com / admin123');
   } catch (error) {
     console.error('Error:', error);
+    process.exit(1); // non-zero so entrypoint.sh aborts on failure
   } finally {
     if (connection) await connection.end();
-    process.exit(0);
   }
 };
 setupDatabase();
