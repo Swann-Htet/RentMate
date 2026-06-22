@@ -52,18 +52,21 @@ jobs:
         run: |
           echo "Waiting for app container to start..."
           docker compose ps
-          # Give the app time to run setupDatabase.js and start the server
-          sleep 15
+          # setupDatabase.js creates all tables + seeds admin on first run.
+          # Give it enough time before curl starts probing.
+          sleep 30
           docker compose ps
-          docker compose logs app --tail=50
+          docker compose logs app --tail=80
 
       - name: Smoke test — root page
         run: |
+          # --retry-all-errors retries on ANY curl error (7=refused, 56=reset, etc.)
           curl \
-            --retry 15 \
+            --retry 20 \
             --retry-delay 3 \
-            --retry-connrefused \
-            --retry-max-time 60 \
+            --retry-all-errors \
+            --retry-max-time 90 \
+            --max-time 10 \
             --fail \
             --silent \
             --show-error \
@@ -74,8 +77,10 @@ jobs:
         run: |
           RESPONSE=$(curl \
             --retry 10 \
-            --retry-delay 2 \
-            --retry-connrefused \
+            --retry-delay 3 \
+            --retry-all-errors \
+            --retry-max-time 60 \
+            --max-time 10 \
             --fail \
             --silent \
             http://localhost:3000/api/items)
