@@ -48,15 +48,28 @@ jobs:
       - name: Start stack with docker compose
         run: docker compose up -d --build
 
-      - name: Wait for app to be healthy
+      - name: Wait for app container to be stable
         run: |
-          echo "Waiting for app container to start..."
+          echo "Giving stack 45s to complete DB setup and start the server..."
+          sleep 45
           docker compose ps
-          # setupDatabase.js creates all tables + seeds admin on first run.
-          # Give it enough time before curl starts probing.
-          sleep 30
-          docker compose ps
-          docker compose logs app --tail=80
+          docker compose logs app --tail=100
+
+          # Gate: ensure the container is actually RUNNING (not restarting/exited)
+          STATE=$(docker inspect rentmate_app --format='{{.State.Status}}')
+          RESTARTS=$(docker inspect rentmate_app --format='{{.RestartCount}}')
+          echo "Container state: $STATE | Restart count: $RESTARTS"
+          if [ "$STATE" != "running" ]; then
+            echo "ERROR: App container is not running (state=$STATE). Dumping full logs:"
+            docker compose logs
+            exit 1
+          fi
+          if [ "$RESTARTS" -gt 0 ]; then
+            echo "ERROR: App container has restarted $RESTARTS time(s). Dumping full logs:"
+            docker compose logs
+            exit 1
+          fi
+          echo "Container is stable and running."
 
       - name: Smoke test — root page
         run: |
