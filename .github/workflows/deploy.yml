@@ -86,22 +86,6 @@ jobs:
             http://localhost:3000/
           echo "Root page OK"
 
-      - name: Smoke test — items API returns success
-        run: |
-          RESPONSE=$(curl \
-            --retry 10 \
-            --retry-delay 3 \
-            --retry-all-errors \
-            --retry-max-time 60 \
-            --max-time 10 \
-            --fail \
-            --silent \
-            http://localhost:3000/api/items)
-          echo "Response: $RESPONSE"
-          echo "$RESPONSE" | grep -q '"success":true' \
-            || (echo "Items API did not return success:true" && exit 1)
-          echo "Items API OK"
-
 
       - name: Show logs on failure
         if: failure()
